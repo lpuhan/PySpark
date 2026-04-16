@@ -1,0 +1,68 @@
+import pyspark
+from pyspark.sql import SparkSession
+import pandas as pd
+import os
+import sys
+from pyspark.ml.feature import Imputer 
+# Working spark with Python 3.10 and above on Windows can sometimes lead to issues due to compatibility problems. To mitigate this, we can set the environment variables to ensure that Spark uses the correct Python executable. This is especially important when using newer versions of Python that may not be fully supported by older versions of Spark.
+# This forces Spark to use the exact Python executable currently running this script
+os.environ['PYSPARK_PYTHON'] = sys.executable
+os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
+
+df_empData = pd.read_csv("file:///D:/GitHub/PySpark/MyDataCSV.csv")
+print(df_empData)
+
+spark = SparkSession.builder\
+                    .appName("Spark02")\
+                    .appName("WindowsDebug") \
+                    .config("spark.python.worker.faulthandler.enabled", "true") \
+                    .config("spark.sql.execution.pyspark.udf.faulthandler.enabled", "true") \
+                    .config("spark.executor.memory", "2g") \
+                    .config("spark.driver.memory", "2g") \
+                    .getOrCreate()
+
+print("Spark Session created successfully!")
+print(">>>>> ",spark)
+ 
+spark_df = spark.createDataFrame(df_empData)
+print("Spark DataFrame created successfully!")
+# spark_df.show()
+spark_df1 =  spark.read.options(header='true', inferSchema='true').csv("file:///D:/GitHub/PySpark/MyDataCSV.csv")
+spark_df1.show()
+print(type(spark_df1))
+print("printSchema" ,spark_df1.printSchema)
+print(spark_df1.head(3))
+print("columns ",spark_df1.columns)
+print(spark_df1.select("Empname","Experience").show())
+print(spark_df1.describe().show())
+# add columns to dataframe
+spark_df1 = spark_df1.withColumn("Experience_in_months", spark_df1.Experience * 12)
+print(spark_df1.show())
+spark_df1 = spark_df1.drop("Experience_in_months")
+print(spark_df1.show())
+print(spark_df1.na.drop().show())
+print(spark_df1.na.drop(how="any",thresh=2))
+spark_df1 = spark_df1.na.fill({"Experience": 0})
+spark_df1 = spark_df1.na.fill('Missing Value')
+print(spark_df1.show())
+
+# spark_df1 = Imputer(strategy="mean", inputCols=["Experience"], outputCols=["Experience_imputed"])
+# print(spark_df1.show())
+print(spark_df1.filter((spark_df1.Experience > 3) & (spark_df1.Experience < 10)).show())
+spark_df1.filter(spark_df1.Age >20).select("Empname", "Age").show()
+spark_df1.filter(~(spark_df1.Age >20)).show()
+
+myEmpSalDf = spark.read.csv("D:\GitHub\PySpark\MyEmpSalary.csv", header=True, inferSchema=True)
+print("Employee Salary DataFrame",myEmpSalDf.show())
+# print(myEmpSalDf.printSchema().show())
+print(myEmpSalDf.groupBy("EmpName").sum("Salary").show())
+print(myEmpSalDf.groupBy("Department").count().show())    
+print(myEmpSalDf.agg({"Salary": "sum"}).show())
+# spark.stop()
+titanicSprkDs = spark.read.parquet("file:///D:/GitHub/PySpark/titanic.parquet",header=True, inferSchema=True)
+print("Titanic DataFrame",titanicSprkDs.printSchema())
+print(titanicSprkDs.head(10))   
+
+# sc = pyspark.SparkContext("local[*]", "Spark02").getOrCreate()
+# rdd1 = sc.parallelize([1, 2, 3, 4, 5]).map(lambda x: x * x)
+# print(  "RDD1 >> ", rdd1.collect())
